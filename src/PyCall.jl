@@ -664,30 +664,30 @@ end
 
 #########################################################################
 
+# const oargs = Array{PyObject}(1024)
 """
 Low-level version of `pycall(o, ...)` that always returns `PyObject`.
 """
 function _pycall(o::Union{PyObject,PyPtr}, args...; kwargs...)
-    oargs = map(PyObject, args)
     nargs = length(args)
+    oargs = Array{PyObject}(nargs)
     sigatomic_begin()
     try
         arg = PyObject(@pycheckn ccall((@pysym :PyTuple_New), PyPtr, (Int,),
                                        nargs))
         for i = 1:nargs
+            oargs[i] = PyObject(args[i])
             @pycheckz ccall((@pysym :PyTuple_SetItem), Cint,
                              (PyPtr,Int,PyPtr), arg, i-1, oargs[i])
             pyincref(oargs[i]) # PyTuple_SetItem steals the reference
         end
         if isempty(kwargs)
-            ret = PyObject(@pycheckn ccall((@pysym :PyObject_Call), PyPtr,
-                                          (PyPtr,PyPtr,PyPtr), o, arg, C_NULL))
+            kw = C_NULL
         else
-            #kw = PyObject((AbstractString=>Any)[string(k) => v for (k, v) in kwargs])
             kw = PyObject(Dict{AbstractString, Any}([Pair(string(k), v) for (k, v) in kwargs]))
-            ret = PyObject(@pycheckn ccall((@pysym :PyObject_Call), PyPtr,
-                                            (PyPtr,PyPtr,PyPtr), o, arg, kw))
         end
+        ret = PyObject(#- @pycheckn =# ccall((@pysym :PyObject_Call), PyPtr,
+                                       (PyPtr,PyPtr,PyPtr), o, arg, kw))
         return ret::PyObject
     finally
         sigatomic_end()
