@@ -668,7 +668,7 @@ end
 """
 Low-level version of `pycall(o, ...)` that always returns `PyObject`.
 """
-function _pycall(o::Union{PyObject,PyPtr}, args...; kwargs...)
+function _pycall(o::Union{PyObject,PyPtr}, ret::PyObject, args...; kwargs...)
     nargs = length(args)
     oargs = Array{PyObject}(nargs)
     sigatomic_begin()
@@ -686,9 +686,11 @@ function _pycall(o::Union{PyObject,PyPtr}, args...; kwargs...)
         else
             kw = PyObject(Dict{AbstractString, Any}([Pair(string(k), v) for (k, v) in kwargs]))
         end
-        ret = PyObject(#- @pycheckn =# ccall((@pysym :PyObject_Call), PyPtr,
-                                       (PyPtr,PyPtr,PyPtr), o, arg, kw))
-        return ret::PyObject
+        retptr = ccall((@pysym :PyObject_Call), PyPtr, (PyPtr,PyPtr,PyPtr), o,
+                        arg, kw)
+        pyincref_(retptr)
+        ret.o = retptr
+        return ret #::PyObject
     finally
         sigatomic_end()
     end
@@ -696,14 +698,22 @@ end
 
 """
     pycall(o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...)
-
-Call the given Python function (typically looked up from a module) with the given args... (of standard Julia types which are converted automatically to the corresponding Python types if possible), converting the return value to returntype (use a returntype of PyObject to return the unconverted Python object reference, or of PyAny to request an automated conversion)
+    pycall(o::Union{PyObject,PyPtr}, pyobj::PyObject, returntype::TypeTuple, args...; kwargs...)
+Call the given Python function (typically looked up from a module) with the
+given args... (of standard Julia types which are converted automatically to the
+corresponding Python types if possible), converting the return value to
+returntype (use a returntype of PyObject to return the unconverted Python object
+reference, or of PyAny to request an automated conversion). Supply pyobj if you
+don't want a new PyObject created at each call for performance reasons.
 """
 pycall(o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...) =
-    return convert(returntype, _pycall(o, args...; kwargs...))::returntype
+    convert(returntype, _pycall(o, PyNULL(), args...; kwargs...))::returntype
+
+pycall(o::Union{PyObject,PyPtr}, pyobj::PyObject, returntype::TypeTuple, args...; kwargs...) =
+    convert(returntype, _pycall(o, pyobj, args...; kwargs...))::returntype
 
 pycall(o::Union{PyObject,PyPtr}, ::Type{PyAny}, args...; kwargs...) =
-    return convert(PyAny, _pycall(o, args...; kwargs...))
+    convert(PyAny, _pycall(o, PyNULL(), args...; kwargs...))
 
 (o::PyObject)(args...; kws...) = pycall(o, PyAny, args...; kws...)
 PyAny(o::PyObject) = convert(PyAny, o)
