@@ -85,6 +85,8 @@ function __init__()
     copy!(jlfun2pyfun,
           pyeval_("""lambda f: lambda *args, **kwargs: f(*args, **kwargs)"""))
 
+    pyargsref[] = ccall((@pysym :PyTuple_New), PyPtr, (Int,), 0)
+
     if !already_inited
         # some modules (e.g. IPython) expect sys.argv to be set
         @static if VERSION >= v"0.7.0-DEV.1963"

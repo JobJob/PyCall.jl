@@ -90,9 +90,15 @@ someobject)`.   This procedure will properly handle Python's reference counting
 PyNULL() = PyObject(PyPtr_NULL)
 
 function pydecref(o::PyObject)
+    pydecref_(o.o)
     ccall(@pysym(:Py_DecRef), Cvoid, (PyPtr,), o.o)
     o.o = PyPtr_NULL
     o
+end
+
+function pydecref_(o::PyPtr)
+    ccall(@pysym(:Py_DecRef), Cvoid, (PyPtr,), o)
+    return o
 end
 
 function pyincref_(o::PyPtr)
@@ -265,6 +271,8 @@ function getindex(o::PyObject, s::AbstractString)
     end
     p = ccall((@pysym :PyObject_GetAttrString), PyPtr, (PyPtr, Cstring), o, s)
     if p == C_NULL
+        println("\nthrowing since p is null ... s: $s, o: $o")
+        # Base.show_backtrace(STDOUT, stacktrace())
         pyerr_clear()
         throw(KeyError(s))
     end
@@ -664,21 +672,25 @@ end
 
 #########################################################################
 
-# const oargs = Array{PyObject}(1024)
+const oargs = Array{PyObject}(1024)
+const pyargsref = Ref{PyPtr}()
 """
 Low-level version of `pycall(o, ...)` that always returns `PyObject`.
 """
 function _pycall(o::Union{PyObject,PyPtr}, ret::PyObject, args...; kwargs...)
     nargs = length(args)
-    oargs = Array{PyObject}(nargs)
+    # oargs = Array{PyObject}(nargs)
     sigatomic_begin()
     try
-        arg = PyObject(@pycheckn ccall((@pysym :PyTuple_New), PyPtr, (Int,),
-                                       nargs))
+        @pycheckz ccall((@pysym :_PyTuple_Resize), Cint,
+                             (Ptr{PyPtr}, Int,), pyargsref, nargs)
+        # pyincref_(pyargsref[])
+        # pyargs = PyObject(pyargsref[]) # change to pyincref_ (and pydecref later) to avoid the PyObject?
+
         for i = 1:nargs
             oargs[i] = PyObject(args[i])
             @pycheckz ccall((@pysym :PyTuple_SetItem), Cint,
-                             (PyPtr,Int,PyPtr), arg, i-1, oargs[i])
+                             (PyPtr,Int,PyPtr), pyargsref[], i-1, oargs[i])
             pyincref(oargs[i]) # PyTuple_SetItem steals the reference
         end
         if isempty(kwargs)
@@ -687,7 +699,7 @@ function _pycall(o::Union{PyObject,PyPtr}, ret::PyObject, args...; kwargs...)
             kw = PyObject(Dict{AbstractString, Any}([Pair(string(k), v) for (k, v) in kwargs]))
         end
         retptr = ccall((@pysym :PyObject_Call), PyPtr, (PyPtr,PyPtr,PyPtr), o,
-                        arg, kw)
+                        pyargsref[], kw)
         pyincref_(retptr)
         ret.o = retptr
         return ret #::PyObject
@@ -707,13 +719,16 @@ reference, or of PyAny to request an automated conversion). Supply pyobj if you
 don't want a new PyObject created at each call for performance reasons.
 """
 pycall(o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...) =
-    convert(returntype, _pycall(o, PyNULL(), args...; kwargs...))::returntype
+    return convert(returntype, _pycall(o, PyNULL(), args...; kwargs...))::returntype
 
 pycall(o::Union{PyObject,PyPtr}, pyobj::PyObject, returntype::TypeTuple, args...; kwargs...) =
-    convert(returntype, _pycall(o, pyobj, args...; kwargs...))::returntype
+    return convert(returntype, _pycall(o, pyobj, args...; kwargs...))::returntype
+
+pycall(o::Union{PyObject,PyPtr}, pyobj::PyObject, returntype::Type{PyObject},
+       args...; kwargs...)::PyObject = return _pycall(o, pyobj, args...; kwargs...)
 
 pycall(o::Union{PyObject,PyPtr}, ::Type{PyAny}, args...; kwargs...) =
-    convert(PyAny, _pycall(o, PyNULL(), args...; kwargs...))
+    return convert(PyAny, _pycall(o, PyNULL(), args...; kwargs...))
 
 (o::PyObject)(args...; kws...) = pycall(o, PyAny, args...; kws...)
 PyAny(o::PyObject) = convert(PyAny, o)

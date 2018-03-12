@@ -226,6 +226,14 @@ PyReverseDims(a::AbstractArray)
 # to call the Python interface to do this, since the equivalent information
 # in NumPy's C API is only available via macros (or parsing structs).
 # [ Hopefully, this will be improved in a future NumPy version. ]
+function default_stride(T, sz)
+    st = similar(sz)
+    st[end] = sizeof(T)
+    for i = length(sz)-1:-1:1
+        st[i] = st[i+1]*sz[i+1]
+    end
+    return st
+end
 
 mutable struct PyArray_Info
     T::Type
@@ -240,16 +248,21 @@ mutable struct PyArray_Info
         typestr = convert(AbstractString, ai["typestr"])
         T = npy_typestrs[typestr[2:end]]
         datatuple = convert(Tuple{Int,Bool}, ai["data"])
-        sz = convert(Vector{Int}, ai["shape"])
+        sz = convert(Vector{Int}, convert(PyVector, ai["shape"]))
+        # println("\n sz: $sz")
+        # println("strides: ", ai["strides"])
         local st
-        try
-            st = isempty(sz) ? Int[] : convert(Vector{Int}, ai["strides"])
-        catch
-            # default is C-order contiguous
-            st = similar(sz)
-            st[end] = sizeof(T)
-            for i = length(sz)-1:-1:1
-                st[i] = st[i+1]*sz[i+1]
+
+        st = if isempty(sz)
+            Int[]
+        elseif ai["strides"].o == pynothing[]
+            default_stride(T, sz)
+        else
+            try
+                convert(Vector{Int}, ai["strides"])
+            catch
+                # default is C-order contiguous
+                default_stride(T, sz)
             end
         end
         return new(T,
