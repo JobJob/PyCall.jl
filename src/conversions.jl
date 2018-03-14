@@ -716,6 +716,8 @@ function pysequence_query(o::PyObject)
         return AbstractRange
     elseif ispybytearray(o)
         return Vector{UInt8}
+    elseif !haskey(o, "__array_interface__")
+        return pyisinstance(o, @pyglobalobj :PyList_Type) ? Array : Union{}
     else
         try
             otypestr = get(o["__array_interface__"], PyObject, "typestr")
