@@ -243,7 +243,8 @@ eltype(::Type{PyVector{T}}) where {T} = pyany_toany(T)
 size(a::PyVector) = (length(a.o),)
 
 getindex(a::PyVector) = getindex(a, 1)
-getindex(a::PyVector{T}, i::Integer) where {T} = convert(T, PyObject(@pycheckn ccall((@pysym :PySequence_GetItem), PyPtr, (PyPtr, Int), a, i-1)))
+getindex(a::PyVector{T}, i::Integer) where {T} =
+    convert(T, PyObject(@pycheckn ccall((@pysym :PySequence_GetItem), PyPtr, (PyPtr, Int), a, i-1)))
 
 setindex!(a::PyVector, v) = setindex!(a, v, 1)
 function setindex!(a::PyVector, v, i::Integer)
@@ -420,7 +421,7 @@ mutable struct PyDict{K,V,isdict} <: AbstractDict{K,V}
     # isdict = true for python dict, otherwise is a generic Mapping object
 
     function PyDict{K,V,isdict}(o::PyObject) where {K,V,isdict}
-        if o.o != C_NULL && !is_mapping_object(o)
+        if o.o != C_NULL && !isdict && !is_mapping_object(o)
             throw(ArgumentError("only Dict and Mapping objects can be converted to PyDict"))
         end
         return new{K,V,isdict}(o)

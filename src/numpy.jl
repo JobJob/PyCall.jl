@@ -221,11 +221,10 @@ libraries that expect row-major data.
 """
 PyReverseDims(a::AbstractArray)
 
-#########################################################################
-# Extract shape and other information about a NumPy array.  We need
-# to call the Python interface to do this, since the equivalent information
-# in NumPy's C API is only available via macros (or parsing structs).
-# [ Hopefully, this will be improved in a future NumPy version. ]
+"""
+`default_stride(T, sz)`
+Internal function used by PyArray_Info
+"""
 function default_stride(T, sz)
     st = similar(sz)
     st[end] = sizeof(T)
@@ -235,6 +234,11 @@ function default_stride(T, sz)
     return st
 end
 
+#########################################################################
+# Extract shape and other information about a NumPy array.  We need
+# to call the Python interface to do this, since the equivalent information
+# in NumPy's C API is only available via macros (or parsing structs).
+# [ Hopefully, this will be improved in a future NumPy version. ]
 mutable struct PyArray_Info
     T::Type
     native::Bool # native byte order?
@@ -243,12 +247,13 @@ mutable struct PyArray_Info
     data::Ptr{Cvoid}
     readonly::Bool
 
+    # TODO use __array_struct__ if it exists
     function PyArray_Info(a::PyObject)
-        ai = PyDict{AbstractString,PyObject}(a["__array_interface__"])
-        typestr = convert(AbstractString, ai["typestr"])
+        ai = PyDict{String,PyObject,true}(a["__array_interface__"])
+        typestr = convert(String, ai["typestr"])
         T = npy_typestrs[typestr[2:end]]
         datatuple = convert(Tuple{Int,Bool}, ai["data"])
-        sz = convert(Vector{Int}, convert(PyVector, ai["shape"]))
+        sz = convert(Vector{Int}, convert(PyVector{Int}, ai["shape"]))
         # println("\n sz: $sz")
         # println("strides: ", ai["strides"])
         local st
@@ -256,6 +261,7 @@ mutable struct PyArray_Info
         st = if isempty(sz)
             Int[]
         elseif ai["strides"].o == pynothing[]
+        # elseif get(ai, PyObject, "strides").o == pynothing[]
             default_stride(T, sz)
         else
             try
