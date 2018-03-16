@@ -91,7 +91,6 @@ PyNULL() = PyObject(PyPtr_NULL)
 
 function pydecref(o::PyObject)
     pydecref_(o.o)
-    ccall(@pysym(:Py_DecRef), Cvoid, (PyPtr,), o.o)
     o.o = PyPtr_NULL
     o
 end
