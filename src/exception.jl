@@ -67,6 +67,14 @@ callsym(s::QuoteNode) = s.value
 import Base.Meta.isexpr
 callsym(ex::Expr) = isexpr(ex,:macrocall,2) ? callsym(ex.args[2]) : isexpr(ex,:ccall) ? callsym(ex.args[1]) : ex
 
+# callsym(s::Symbol)::String = string(s)
+# callsym(s::QuoteNode)::String = string(s.value)
+# import Base.Meta.isexpr
+# function callsym(ex::Expr)::String
+#     (isexpr(ex,:macrocall,2) ? callsym(ex.args[2]) :
+#     isexpr(ex,:ccall) ? callsym(ex.args[1]) : ex) |> string
+# end
+
 # Macros for common pyerr_check("Foo", ccall((@pysym :Foo), ...)) pattern.
 macro pycheck(ex)
     :(pyerr_check($(string(callsym(ex))), $(esc(ex))))
@@ -79,7 +87,7 @@ macro pycheckv(ex, bad)
         if val == $(esc(bad))
             # throw a PyError if available, otherwise throw ErrorException
             pyerr_check($(string(callsym(ex))))
-            error($(string(callsym(ex))), " failed")
+            error(string($(callsym(ex)), " failed")::String)
         end
         val
     end
