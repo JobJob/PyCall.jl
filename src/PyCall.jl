@@ -792,6 +792,22 @@ end
 get(o::PyObject, k, default) = get(o, PyAny, k, default)
 get(o::PyObject, k) = get(o, PyAny, k)
 
+
+function gettplidx!(ret::PyObject, tpl::PyObject, returntype::Type{PyObject}, idx::Int)
+    ret.o = (@pycheckn ccall(@pysym(:PyTuple_GetItem), PyPtr, (PyPtr, Int), tpl, idx))
+    pyincref_(ret.o)
+    ret
+end
+function gettplidx!(ret::PyObject, tpl::PyObject, returntype::Type{T}, idx::Int) where {T}
+    gettplidx!(ret, tpl, PyObject, idx)
+    convert(T, ret)
+end
+gettplidx!(ret::PyObject, tpl::PyObject, idx::Int) = gettplidx!(ret, tpl, PyAny, idx)
+
+gettplidx(tpl::PyObject, returntype::Type{T}, idx::Int) where {T} =
+    gettplidx!(PyNULL(), tpl, T, idx)
+gettplidx(tpl::PyObject, idx::Int) = gettplidx!(PyNULL(), tpl, PyObject, idx)
+
 function delete!(o::PyObject, k)
     e = ccall((@pysym :PyObject_DelItem), Cint, (PyPtr, PyPtr), o, PyObject(k))
     if e == -1
