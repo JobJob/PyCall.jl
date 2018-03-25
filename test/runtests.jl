@@ -238,14 +238,6 @@ if pymodule_exists("mpmath")
 end
 @test convert(BigInt, PyObject(1234)) == 1234
 
-# buffers
-let b = PyCall.PyBuffer(pyutf8("test string"))
-    @test ndims(b) == 1
-    @test (length(b),) == (length("test string"),) == (size(b, 1),) == size(b)
-    @test stride(b, 1) == 1
-    @test PyCall.iscontiguous(b) == true
-end
-
 let o = PyObject(1+2im)
     @test haskey(o, :real)
     @test :real in keys(o)
@@ -536,3 +528,6 @@ end
 @test pyfunctionret(factorial, Float64, Int)(3) === 6.0
 @test pyfunctionret(factorial, nothing, Int)(3) === nothing
 @test PyCall.is_pyjlwrap(pycall(pyfunctionret(factorial, Any, Int), PyObject, 3))
+
+
+include("testpybuffer.jl")
