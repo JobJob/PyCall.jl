@@ -7,6 +7,7 @@ using Compat, VersionParsing
 export pycall, pycall!, pyimport, pybuiltin, PyObject, PyReverseDims,
        PyPtr, pyincref, pydecref, pyversion, PyArray, PyArray_Info,
        ArrayFromBuffer, setdata!,
+       PyFuncWrap, setarg, setargs,
        pyerr_check, pyerr_clear, pytype_query, PyAny, @pyimport, PyDict,
        pyisinstance, pywrap, pytypeof, pyeval, PyVector, pystring, pystr, pyrepr,
        pyraise, pytype_mapping, pygui, pygui_start, pygui_stop,
@@ -176,6 +177,7 @@ include("pytype.jl")
 include("pyiterator.jl")
 include("pyclass.jl")
 include("callback.jl")
+include("pyfuncwrap.jl")
 include("io.jl")
 
 #########################################################################
