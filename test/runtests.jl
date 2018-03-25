@@ -491,7 +491,8 @@ let t = convert(Tuple, PyObject((3,34)))
     @test isa(t, Tuple{PyObject,PyObject})
     @test t == (PyObject(3), PyObject(34))
 end
-for T in (Tuple{Vararg{PyAny}}, NTuple{2,Int}, Tuple{Int,Int}, Tuple{Vararg{Int}}, Tuple{Int,Vararg{Int}})
+for T in (Tuple{Vararg{PyAny}}, NTuple{2,Int}, Tuple{Int,Int}, Tuple{Vararg{Int}},
+          Tuple{Int,Vararg{Int}}, Tuple{T} where T, Tuple{Vararg{T}} where T)
     let t = convert(T, PyObject((3,34)))
         @test isa(t, Tuple{Int,Int})
         @test t == (3,34)

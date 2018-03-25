@@ -175,6 +175,7 @@ end
 # somewhat annoying to get the length and types in a tuple type
 # ... would be better not to have to use undocumented internals!
 istuplen(T,isva,n) = isva ? n ≥ length(T.parameters)-1 : n == length(T.parameters)
+istuplen(T::UnionAll,isva,n) = istuplen(T.body,isva,n)
 function tuptype(T::DataType,isva,i)
     if isva && i ≥ length(T.parameters)
         return Base.unwrapva(T.parameters[end])
