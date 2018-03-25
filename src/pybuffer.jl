@@ -93,7 +93,7 @@ iscontiguous(b::PyBuffer) =
 
 #############################################################################
 # pybuffer constant values from Include/object.h
-const PyBUF_MAX_NDIM = convert(Cint, 64)
+const PyBUF_MAX_NDIM = convert(Cint, 64) # == 0x0040 ? and not in spec
 const PyBUF_SIMPLE    = convert(Cint, 0)
 const PyBUF_WRITABLE  = convert(Cint, 0x0001)
 const PyBUF_FORMAT    = convert(Cint, 0x0004)
@@ -107,6 +107,13 @@ const PyBUF_INDIRECT       = convert(Cint, 0x0100) | PyBUF_STRIDES
 # construct a PyBuffer from a PyObject, if possible
 function PyBuffer(o::Union{PyObject,PyPtr}, flags=PyBUF_SIMPLE)
     b = PyBuffer()
+    # TODO change to `Ref{PyBuffer}` when 0.6 is dropped.
+    @pycheckz ccall((@pysym :PyObject_GetBuffer), Cint,
+                     (PyPtr, Any, Cint), o, b, flags)
+    return b
+end
+
+function PyBuffer!(b::PyBuffer, o::Union{PyObject,PyPtr}, flags=PyBUF_SIMPLE)
     # TODO change to `Ref{PyBuffer}` when 0.6 is dropped.
     @pycheckz ccall((@pysym :PyObject_GetBuffer), Cint,
                      (PyPtr, Any, Cint), o, b, flags)
