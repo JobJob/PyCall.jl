@@ -222,8 +222,9 @@ libraries that expect row-major data.
 PyReverseDims(a::AbstractArray)
 
 """
-`default_stride(T, sz)`
+`PyCall.default_stride(T, sz)`
 Internal function used by PyArray_Info
+Default is C-order contiguous
 """
 function default_stride(T, sz)
     st = similar(sz)
@@ -248,6 +249,12 @@ mutable struct PyArray_Info
     readonly::Bool
 
     # TODO use __array_struct__ if it exists
+    PyArray_Info(T::Type,
+        native::Bool, # native byte order?
+        sz::Vector{Int},
+        st::Vector{Int}, # strides, in multiples of bytes!
+        data::Ptr{Cvoid},
+        readonly::Bool) = new(T, native, sz, st, data, readonly)
     function PyArray_Info(a::PyObject)
         ai = PyDict{String,PyObject,true}(a["__array_interface__"])
         typestr = convert(String, ai["typestr"])
@@ -267,7 +274,6 @@ mutable struct PyArray_Info
             try
                 convert(Vector{Int}, ai["strides"])
             catch
-                # default is C-order contiguous
                 default_stride(T, sz)
             end
         end
@@ -354,6 +360,17 @@ size(a::PyArray) = a.dims
 ndims(a::PyArray{T,N}) where {T,N} = N
 
 similar(a::PyArray, T, dims::Dims) = Array{T}(uninitialized, dims)
+
+const _setdatabuf = Ref{PyBuffer}()
+function setdata!{T,N}(a::PyArray{T,N}, o::PyObject)
+    # ai = o["__array_interface__"]::PyObject
+    # datatpl = get(ai, PyObject, "data")
+    # dataptr = get(datatpl, Ptr{Cvoid}, 0)
+    PyBuffer!(_setdatabuf[], o) # XXX not threadsafe
+    dataptr = _setdatabuf[].buf.buf
+    a.data = convert(Ptr{T}, dataptr)
+    a
+end
 
 function copy(a::PyArray{T,N}) where {T,N}
     if N > 1 && a.c_contig # equivalent to f_contig with reversed dims
@@ -463,6 +480,7 @@ convert(::Type{PyArray}, o::PyObject) = PyArray(o)
 function convert(::Type{Array{T, 1}}, o::PyObject) where T<:NPY_TYPES
     try
         copy(PyArray{T, 1}(o, PyArray_Info(o))) # will check T and N vs. info
+        # copy(PyArrayUsingBuffer(o)) # will check T and N vs. info
     catch
         len = @pycheckz ccall((@pysym :PySequence_Size), Int, (PyPtr,), o)
         A = Array{pyany_toany(T)}(uninitialized, len)
