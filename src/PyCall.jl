@@ -4,7 +4,7 @@ module PyCall
 
 using Compat, VersionParsing
 
-export pycall, pyimport, pybuiltin, PyObject, PyReverseDims,
+export pycall, pycall!, pyimport, pybuiltin, PyObject, PyReverseDims,
        PyPtr, pyincref, pydecref, pyversion, PyArray, PyArray_Info,
        ArrayFromBuffer, setdata!,
        pyerr_check, pyerr_clear, pytype_query, PyAny, @pyimport, PyDict,
@@ -718,17 +718,25 @@ returntype (use a returntype of PyObject to return the unconverted Python object
 reference, or of PyAny to request an automated conversion). Supply pyobj if you
 don't want a new PyObject created at each call for performance reasons.
 """
-pycall(o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...) =
-    return convert(returntype, _pycall(o, PyNULL(), args...; kwargs...))::returntype
+function pycall(o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...)
+    res = _pycall(o, PyNULL(), args...; kwargs...)
+    return convert(returntype, res)::returntype
+end
 
-pycall(o::Union{PyObject,PyPtr}, pyobj::PyObject, returntype::TypeTuple, args...; kwargs...) =
+pycall!(pyobj::PyObject, o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...) =
     return convert(returntype, _pycall(o, pyobj, args...; kwargs...))::returntype
 
-pycall(o::Union{PyObject,PyPtr}, pyobj::PyObject, returntype::Type{PyObject},
+pycall(o::Union{PyObject,PyPtr}, returntype::Type{PyObject},
+       args...; kwargs...)::PyObject = return _pycall(o, PyNULL(), args...; kwargs...)
+
+pycall!(pyobj::PyObject, o::Union{PyObject,PyPtr}, returntype::Type{PyObject},
        args...; kwargs...)::PyObject = return _pycall(o, pyobj, args...; kwargs...)
 
 pycall(o::Union{PyObject,PyPtr}, ::Type{PyAny}, args...; kwargs...) =
     return convert(PyAny, _pycall(o, PyNULL(), args...; kwargs...))
+
+pycall!(pyobj::PyObject, o::Union{PyObject,PyPtr}, ::Type{PyAny}, args...; kwargs...) =
+    return convert(PyAny, _pycall(o, pyobj, args...; kwargs...))
 
 (o::PyObject)(args...; kws...) = pycall(o, PyAny, args...; kws...)
 PyAny(o::PyObject) = convert(PyAny, o)
