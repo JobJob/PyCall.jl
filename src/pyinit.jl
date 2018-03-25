@@ -98,7 +98,7 @@ function __init__()
             ccall(@pysym(:PySys_SetArgvEx), Cvoid, (Cint, Ptr{Cwstring}, Cint),
                   1, [""], 0)
         end
-
+        _setdatabuf[] = PyBuffer()
         # Some Python code checks sys.ps1 to see if it is running
         # interactively, and refuses to be interactive otherwise.
         # (e.g. Matplotlib: see PyPlot#79)

@@ -161,4 +161,51 @@ function Base.write(io::IO, b::PyBuffer)
     end
 end
 
+# ref: https://github.com/numpy/numpy/blob/v1.14.2/numpy/core/src/multiarray/buffer.c#L966
+const pybuf_typestrs = Dict("?"=>Bool,
+                           "b"=>Int8,        "B"=>UInt8,
+                           "h"=>Int16,       "H"=>UInt16,
+                           "i"=>Int32,       "I"=>UInt32,
+                           "l"=>Int64,       "L"=>UInt64,
+                           "q"=>Int128,      "Q"=>UInt128,
+                           "e"=>Float16,     "f"=>Float32,
+                           "d"=>Float64,     "g"=>Void, # Float128?
+                           "c8"=>ComplexF32, "c16"=>ComplexF64,)
+                            # "O"=>PyPtr, "O$(div(Sys.WORD_SIZE,8))"=>PyPtr)
+
+       #                     case '?': return NPY_BOOL;
+       # case 'b': return NPY_BYTE;
+       # case 'B': return NPY_UBYTE;
+       # case 'h': return native ? NPY_SHORT : NPY_INT16;
+       # case 'H': return native ? NPY_USHORT : NPY_UINT16;
+       # case 'i': return native ? NPY_INT : NPY_INT32;
+       # case 'I': return native ? NPY_UINT : NPY_UINT32;
+       # case 'l': return native ? NPY_LONG : NPY_INT32;
+       # case 'L': return native ? NPY_ULONG : NPY_UINT32;
+       # case 'q': return native ? NPY_LONGLONG : NPY_INT64;
+       # case 'Q': return native ? NPY_ULONGLONG : NPY_UINT64;
+       # case 'e': return NPY_HALF;
+       # case 'f': return complex ? NPY_CFLOAT : NPY_FLOAT;
+       # case 'd': return complex ? NPY_CDOUBLE : NPY_DOUBLE;
+       # case 'g': return native ? (complex ? NPY_CLONGDOUBLE : NPY_LONGDOUBLE) : -1;
+
+function PyArrayUsingBuffer(o::PyObject)
+    npb = PyBuffer(o, Cint(PyBUF_WRITABLE | PyBUF_FORMAT | PyBUF_ND | PyBUF_STRIDES | PyBUF_ANY_CONTIGUOUS))
+    # TODO get type
+    info = PyArray_Info(Float64, true, collect(size(npb)), [stride(npb, i) for i in 1:npb.buf.ndim], convert(Ptr{Cvoid}, npb.buf.buf), npb.buf.readonly==1)
+    PyArray{info.T, length(info.sz)}(o, info)
+end
+
+function ArrayFromBuffer(o::PyObject)
+    npb = PyBuffer(o, Cint(PyBUF_WRITABLE | PyBUF_FORMAT | PyBUF_ND | PyBUF_STRIDES | PyBUF_ANY_CONTIGUOUS))
+    typestr = unsafe_string(convert(Ptr{UInt8}, npb.buf.format))
+    if length(typestr) > 1 && (ENDIAN_BOM == 0x04030201 && typestr[1] == '>') ||
+       (ENDIAN_BOM == 0x01020304 && typestr[1] == '<')
+        error("Only native endian format allowed, typestr: '$typestr'")
+    end
+    T = pybuf_typestrs[typestr[end:end]]
+    T == Void && error("Array datatype '$typestr' not supported")
+    unsafe_wrap(Array, convert(Ptr{T}, npb.buf.buf), size(npb), false)
+end
+
 #############################################################################

@@ -6,6 +6,7 @@ using Compat, VersionParsing
 
 export pycall, pyimport, pybuiltin, PyObject, PyReverseDims,
        PyPtr, pyincref, pydecref, pyversion, PyArray, PyArray_Info,
+       ArrayFromBuffer, setdata!,
        pyerr_check, pyerr_clear, pytype_query, PyAny, @pyimport, PyDict,
        pyisinstance, pywrap, pytypeof, pyeval, PyVector, pystring, pystr, pyrepr,
        pyraise, pytype_mapping, pygui, pygui_start, pygui_stop,
