@@ -698,7 +698,7 @@ function _pycall(o::Union{PyObject,PyPtr}, ret::PyObject, args...; kwargs...)
         else
             kw = PyObject(Dict{AbstractString, Any}([Pair(string(k), v) for (k, v) in kwargs]))
         end
-        retptr = ccall((@pysym :PyObject_Call), PyPtr, (PyPtr,PyPtr,PyPtr), o,
+        retptr = @pycheckn ccall((@pysym :PyObject_Call), PyPtr, (PyPtr,PyPtr,PyPtr), o,
                         pyargsref[], kw)
         pyincref_(retptr)
         ret.o = retptr
