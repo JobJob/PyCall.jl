@@ -148,8 +148,8 @@ unsafe_convert(::Type{PyPtr}, po::PyObject) = po.o
 
 # use constructor for generic conversions to PyObject
 convert(::Type{PyObject}, o) = PyObject(o)
-convert(::Type{PyObject}, o::PyObject) = o
-PyObject(o::PyObject) = o
+@inline convert(::Type{PyObject}, o::PyObject) = o
+@inline PyObject(o::PyObject) = o
 
 #########################################################################
 
@@ -757,7 +757,7 @@ end
 # for now we can define "get".
 
 function get(o::PyObject, returntype::TypeTuple, k, default)
-    r = ccall((@pysym :PyObject_GetItem), PyPtr, (PyPtr,PyPtr), o,PyObject(k))
+    r = ccall((@pysym :PyObject_GetItem), PyPtr, (PyPtr,PyPtr), o, PyObject(k))
     if r == C_NULL
         pyerr_clear()
         default
@@ -766,9 +766,20 @@ function get(o::PyObject, returntype::TypeTuple, k, default)
     end
 end
 
-get(o::PyObject, returntype::TypeTuple, k) =
-    convert(returntype, PyObject(@pycheckn ccall((@pysym :PyObject_GetItem),
-                                 PyPtr, (PyPtr,PyPtr), o, PyObject(k))))
+import Base: get!
+function get!(ret::PyObject, o::PyObject, returntype::TypeTuple, k)::returntype
+    # Base.show_backtrace(STDOUT, stacktrace())
+    # println("\n----------------------------------------------------------------")
+    ret.o = @pycheckn ccall((@pysym :PyObject_GetItem),
+                                 PyPtr, (PyPtr,PyPtr), o, PyObject(k))
+    convert(returntype, ret)
+end
+
+function get(o::PyObject, returntype::TypeTuple, k)::returntype
+    # Base.show_backtrace(STDOUT, stacktrace())
+    # println("\n----------------------------------------------------------------")
+    get!(PyNULL(), o, returntype, k)
+end
 
 get(o::PyObject, k, default) = get(o, PyAny, k, default)
 get(o::PyObject, k) = get(o, PyAny, k)
