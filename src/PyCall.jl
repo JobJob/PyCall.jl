@@ -274,7 +274,8 @@ function getindex(o::PyObject, s::AbstractString)
     p = ccall((@pysym :PyObject_GetAttrString), PyPtr, (PyPtr, Cstring), o, s)
     if p == C_NULL
         println("\nthrowing since p is null ... s: $s, o: $o")
-        # Base.show_backtrace(STDOUT, stacktrace())
+        Base.show_backtrace(STDOUT, stacktrace())
+        println("\n----------------------------------------------------------------")
         pyerr_clear()
         throw(KeyError(s))
     end
