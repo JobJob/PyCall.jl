@@ -41,6 +41,7 @@ convert(::Type{Bool}, po::PyObject) =
 
 convert(::Type{T}, po::PyObject) where {T<:Real} =
   convert(T, @pycheck ccall((@pysym :PyFloat_AsDouble), Cdouble, (PyPtr,), asscalar(po)))
+  # convert(T, @pycheck ccall((@pysym :PyFloat_AsDouble), Cdouble, (PyPtr,), po))
 
 function convert(::Type{T}, po_::PyObject) where T<:Complex
     po = asscalar(po_)
