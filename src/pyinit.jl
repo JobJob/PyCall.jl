@@ -99,6 +99,8 @@ function __init__()
                   1, [""], 0)
         end
         _setdatabuf[] = PyBuffer()
+        pyints[] = [PyObject(i) for i in 0:MAX_PYINT]
+        pytuple_type_ptr[] = cglobal(@pysym :PyTuple_Type)
         # Some Python code checks sys.ps1 to see if it is running
         # interactively, and refuses to be interactive otherwise.
         # (e.g. Matplotlib: see PyPlot#79)
