@@ -1,6 +1,6 @@
-using PyCall, BenchmarkTools
+using PyCall, BenchmarkTools, DataStructures
 
-results = Dict{String,Any}()
+results = OrderedDict{String,Any}()
 
 let
     np = pyimport("numpy")
