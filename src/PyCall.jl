@@ -171,6 +171,7 @@ include("pyiterator.jl")
 include("pyclass.jl")
 include("callback.jl")
 include("io.jl")
+include("fasttuples.jl")
 
 #########################################################################
 # Pretty-printing PyObject
