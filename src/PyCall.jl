@@ -691,7 +691,7 @@ function pybuiltin(name)
 end
 
 #########################################################################
-include("pyfuncwrap.jl")
+include("pycalls.jl")
 
 """
 Low-level version of `pycall(o, ...)` that always returns `PyObject`.
