@@ -559,4 +559,4 @@ end
     @test (@pywith IgnoreError(true) error(); true)
 end
 
-include("test_pyfuncwrap.jl")
+include("test_pycalls.jl")
