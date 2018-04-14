@@ -691,7 +691,7 @@ function pybuiltin(name)
 end
 
 #########################################################################
-include("pycalls.jl")
+include("pyfncall.jl")
 
 """
 Low-level version of `pycall(o, ...)` that always returns `PyObject`.
