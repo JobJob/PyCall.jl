@@ -559,4 +559,5 @@ end
     @test (@pywith IgnoreError(true) error(); true)
 end
 
+include("testmisc.jl")
 include("testpybuffer.jl")
