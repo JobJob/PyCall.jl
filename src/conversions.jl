@@ -25,14 +25,25 @@ PyObject(n::Nothing) = pyerr_check("PyObject(nothing)", pyincref(pynothing[]))
 # conversions to Julia types from PyObject
 
 # numpy scalars need o.item() conversion in Python 3
-unsafe_asscalar(o) = pycall(PyObject(ccall((@pysym :PyObject_GetAttrString), PyPtr, (PyPtr, Cstring), o, "item")), PyObject)
+struct NPscalar{T}
+   o::PyObject_struct
+   val::T
+end
+
+function unsafe_convert_npscalar(::Type{T}, o::PyObject) where T
+    # @assert T == native_typestrs[convert(String, o["dtype"]["char"])]
+    unsafe_load(Base.reinterpret(Ptr{NPscalar{T}}, o.o)).val
+end
+
+unsafe_asscalar(o) =
+  pycall(ccall((@pysym :PyObject_GetAttrString), PyPtr, (PyPtr, Cstring), o, "item"), PyObject)
 
 function convert(::Type{T}, po::PyObject) where {T<:Integer}
     i = ccall(@pysym(PyInt_AsSsize_t), Int, (PyPtr,), po)
     if pyerr_occurred()
       if haskey(po, "item")
           pyerr_clear()
-          i = @pycheck ccall(@pysym(PyInt_AsSsize_t), Int, (PyPtr,), unsafe_asscalar(po))
+          i = unsafe_convert_npscalar(T, po)
       else
           throw(PyError(string(PyInt_AsSsize_t)))
       end
@@ -46,7 +57,7 @@ if Sys.WORD_SIZE == 32
         if pyerr_occurred()
             if haskey(po, "item") # numpy scalars need po.item() conversion in Python 3
                 pyerr_clear()
-                i = @pycheck ccall(@pysym(:PyLong_AsLongLong), UInt64, (PyPtr,), unsafe_asscalar(po))
+                i = unsafe_convert_npscalar(T, po)
             else
                 throw(PyError("PyLong_AsLongLong"))
             end
@@ -63,7 +74,7 @@ function convert(::Type{T}, po::PyObject) where {T<:Real}
     if pyerr_occurred()
       if haskey(po, "item") # numpy scalars need po.item() conversion in Python 3
           pyerr_clear()
-          x = @pycheck ccall(@pysym(:PyFloat_AsDouble), Cdouble, (PyPtr,), unsafe_asscalar(po))
+          x = unsafe_convert_npscalar(T, po)
       else
           throw(PyError("PyFloat_AsDouble"))
       end
