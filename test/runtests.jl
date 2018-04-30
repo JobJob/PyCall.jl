@@ -561,3 +561,4 @@ end
 
 include("testmisc.jl")
 include("testpybuffer.jl")
+include("test_pyfncall.jl")
