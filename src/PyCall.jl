@@ -12,11 +12,11 @@ export pycall, pycall!, pyimport, pyimport_e, pybuiltin, PyObject, PyReverseDims
        pyraise, pytype_mapping, pygui, pygui_start, pygui_stop,
        pygui_stop_all, @pylab, set!, PyTextIO, @pysym, PyNULL, ispynull, @pydef,
        pyimport_conda, @py_str, @pywith, @pycall, pybytes, pyfunction, pyfunctionret,
-       pywrapfn, pysetarg!, pysetargs!
+       pywrapfn, pysetarg!, pysetargs!, unsafe_gettpl!
 
 import Base: size, ndims, similar, copy, getindex, setindex!, stride,
        convert, pointer, summary, convert, show, haskey, keys, values,
-       eltype, get, delete!, empty!, length, isempty, start, done,
+       eltype, get, get!, delete!, empty!, length, isempty, start, done,
        next, filter!, hash, splice!, pop!, ==, isequal, push!,
        append!, insert!, prepend!, unsafe_convert
 import Compat: pushfirst!, popfirst!, firstindex, lastindex
@@ -137,10 +137,15 @@ function pystealref!(o::PyObject)
     return optr
 end
 
-function Base.copy!(dest::PyObject, src::PyObject)
-    pydecref(dest)
-    dest.o = src.o
-    return pyincref(dest)
+Base.copy!(dest::PyObject, src::PyObject) = Base.copy!(dest, src.o)
+
+function Base.copy!(dest::PyObject, src::PyPtr)
+    if dest.o != src
+        pyincref_(src)
+        pydecref_(dest.o)
+        dest.o = src
+    end
+    return dest
 end
 
 pyisinstance(o::PyObject, t::PyObject) =
@@ -187,6 +192,7 @@ include("pyiterator.jl")
 include("pyclass.jl")
 include("callback.jl")
 include("io.jl")
+include("get.jl")
 
 #########################################################################
 # Pretty-printing PyObject
@@ -699,68 +705,6 @@ end
 
 #########################################################################
 include("pyfncall.jl")
-
-"""
-Low-level version of `pycall(o, ...)` that always returns `PyObject`.
-"""
-function _pycall_legacy(o::Union{PyObject,PyPtr}, args...; kwargs...)
-    oargs = map(PyObject, args)
-    nargs = length(args)
-    sigatomic_begin()
-    try
-        arg = PyObject(@pycheckn ccall((@pysym :PyTuple_New), PyPtr, (Int,),
-                                       nargs))
-        for i = 1:nargs
-            @pycheckz ccall((@pysym :PyTuple_SetItem), Cint,
-                             (PyPtr,Int,PyPtr), arg, i-1, oargs[i])
-            pyincref(oargs[i]) # PyTuple_SetItem steals the reference
-        end
-        if isempty(kwargs)
-            ret = PyObject(@pycheckn ccall((@pysym :PyObject_Call), PyPtr,
-                                          (PyPtr,PyPtr,PyPtr), o, arg, C_NULL))
-        else
-            #kw = PyObject((AbstractString=>Any)[string(k) => v for (k, v) in kwargs])
-            kw = PyObject(Dict{AbstractString, Any}([Pair(string(k), v) for (k, v) in kwargs]))
-            ret = PyObject(@pycheckn ccall((@pysym :PyObject_Call), PyPtr,
-                                            (PyPtr,PyPtr,PyPtr), o, arg, kw))
-        end
-        return ret::PyObject
-    finally
-        sigatomic_end()
-    end
-end
-
-"""
-    pycall(o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...)
-
-Call the given Python function (typically looked up from a module) with the given args... (of standard Julia types which are converted automatically to the corresponding Python types if possible), converting the return value to returntype (use a returntype of PyObject to return the unconverted Python object reference, or of PyAny to request an automated conversion)
-"""
-pycall_legacy(o::Union{PyObject,PyPtr}, returntype::TypeTuple, args...; kwargs...) =
-    return convert(returntype, _pycall_legacy(o, args...; kwargs...)) #::returntype
-
-pycall_legacy(o::Union{PyObject,PyPtr}, ::Type{PyAny}, args...; kwargs...) =
-    return convert(PyAny, _pycall_legacy(o, args...; kwargs...))
-
-#########################################################################
-# Once Julia lets us overload ".", we will use [] to access items, but
-# for now we can define "get".
-
-function get(o::PyObject, returntype::TypeTuple, k, default)
-    r = ccall((@pysym :PyObject_GetItem), PyPtr, (PyPtr,PyPtr), o,PyObject(k))
-    if r == C_NULL
-        pyerr_clear()
-        default
-    else
-        convert(returntype, PyObject(r))
-    end
-end
-
-get(o::PyObject, returntype::TypeTuple, k) =
-    convert(returntype, PyObject(@pycheckn ccall((@pysym :PyObject_GetItem),
-                                 PyPtr, (PyPtr,PyPtr), o, PyObject(k))))
-
-get(o::PyObject, k, default) = get(o, PyAny, k, default)
-get(o::PyObject, k) = get(o, PyAny, k)
 
 function delete!(o::PyObject, k)
     e = ccall((@pysym :PyObject_DelItem), Cint, (PyPtr, PyPtr), o, PyObject(k))
