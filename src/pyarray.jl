@@ -138,7 +138,7 @@ end
 getindex(a::PyArray{T,0}) where {T} = unsafe_load(a.data)
 getindex(a::PyArray{T,1}, i::Integer) where {T} = unsafe_load(a.data, 1 + (i-1)*a.st[1])
 
-getindex(a::PyArray{T,2}, i::Integer, j::Integer) where {T} =
+getindex(a::PyCall.PyArray{T,2}, i::IT, j::IT) where {T, IT<:Integer} =
   unsafe_load(a.data, 1 + (i-1)*a.st[1] + (j-1)*a.st[2])
 
 function getindex(a::PyArray, i::Integer)
@@ -159,6 +159,18 @@ function getindex(a::PyArray, is::Integer...)
         if is[i] != 1
             throw(BoundsError())
         end
+    end
+    unsafe_load(a.data, index)
+end
+
+@propagate_inbounds getindex(a::PyArray{T,N}, is::Vararg{IT, N}) where
+  {T,N,IT<:Integer} = getindex(a, is)
+
+@propagate_inbounds function getindex(a::PyArray{T,N}, is::NTuple{N, IT}) where {T,N,IT<:Integer}
+    index = 1
+    @boundscheck checkbounds(a, is...)
+    @simd for i in 1:N
+        @inbounds index += (is[i]-1)*a.st[i]
     end
     unsafe_load(a.data, index)
 end
