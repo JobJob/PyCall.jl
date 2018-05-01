@@ -18,7 +18,7 @@ import Base: size, ndims, similar, copy, getindex, setindex!, stride,
        convert, pointer, summary, convert, show, haskey, keys, values,
        eltype, get, get!, delete!, empty!, length, isempty, start, done,
        next, filter!, hash, splice!, pop!, ==, isequal, push!,
-       append!, insert!, prepend!, unsafe_convert
+       append!, insert!, prepend!, unsafe_convert, @propagate_inbounds
 import Compat: pushfirst!, popfirst!, firstindex, lastindex
 
 # Python C API is not interrupt-safe.  In principle, we should
