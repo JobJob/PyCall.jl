@@ -109,8 +109,10 @@ end
 
 size(a::PyArray) = a.dims
 ndims(a::PyArray{T,N}) where {T,N} = N
-
-similar(a::PyArray, T, dims::Dims) = Array{T}(undef, dims)
+eltype(a::PyArray{T,N}) where {T,N} = T
+similar(a::PyArray, ::Type{T}, dims::Dims) where T = Array{T}(undef, dims)
+stride(a::PyArray, i::Integer) = a.st[i]
+strides(a::PyArray) = a.st
 
 function setdata!{T,N}(a::PyArray{T,N}, o::PyObject, pybufinfo=PyBuffer())
     PyBuffer!(pybufinfo, o, PyBUF_ND_CONTIGUOUS)
@@ -199,8 +201,6 @@ function setindex!(a::PyArray, v, is::Integer...)
     end
     writeok_assign(a, v, index)
 end
-
-stride(a::PyArray, i::Integer) = a.st[i]
 
 Base.unsafe_convert(::Type{Ptr{T}}, a::PyArray{T}) where {T} = a.data
 

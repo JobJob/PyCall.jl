@@ -14,7 +14,7 @@ export pycall, pycall!, pyimport, pyimport_e, pybuiltin, PyObject, PyReverseDims
        pyimport_conda, @py_str, @pywith, @pycall, pybytes, pyfunction, pyfunctionret,
        pywrapfn, pysetarg!, pysetargs!, unsafe_gettpl!
 
-import Base: size, ndims, similar, copy, getindex, setindex!, stride,
+import Base: size, ndims, similar, copy, getindex, setindex!, stride, strides,
        convert, pointer, summary, convert, show, haskey, keys, values,
        eltype, get, get!, delete!, empty!, length, isempty, start, done,
        next, filter!, hash, splice!, pop!, ==, isequal, push!,
