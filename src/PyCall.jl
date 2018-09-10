@@ -16,8 +16,8 @@ export pycall, pycall!, pyimport, pyimport_e, pybuiltin, PyObject, PyReverseDims
 
 import Base: size, ndims, similar, copy, getindex, setindex!, stride, strides,
        convert, pointer, summary, convert, show, haskey, keys, values,
-       eltype, get, get!, delete!, empty!, length, isempty, start, done,
-       next, filter!, hash, splice!, pop!, ==, isequal, push!,
+       eltype, get, get!, delete!, empty!, length, isempty, filter!,
+       hash, splice!, pop!, ==, isequal, push!,
        append!, insert!, prepend!, unsafe_convert, @propagate_inbounds
 
 import Compat: pushfirst!, popfirst!, firstindex, lastindex
@@ -101,7 +101,6 @@ it is equivalent to a `PyNULL()` object.
 """
 ispynull(o::PyObject) = o.o == PyPtr_NULL
 
-<<<<<<< HEAD
 function pydecref_(o::Union{PyPtr,PyObject})
     ccall(@pysym(:Py_DecRef), Cvoid, (PyPtr,), o)
     return o
@@ -109,14 +108,6 @@ end
 
 function pydecref(o::PyObject)
     pydecref_(o)
-=======
-function pydecref_(o::PyPtr)
-    ccall(@pysym(:Py_DecRef), Cvoid, (PyPtr,), o)
-end
-
-function pydecref(o::PyObject)
-    pydecref_(o.o)
->>>>>>> fast-tuple-access
     o.o = PyPtr_NULL
     return o
 end

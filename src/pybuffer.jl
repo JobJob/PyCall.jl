@@ -114,6 +114,7 @@ end
 
 function PyBuffer!(b::PyBuffer, o::Union{PyObject,PyPtr}, flags=PyBUF_SIMPLE)
     # TODO change to `Ref{PyBuffer}` when 0.6 is dropped.
+    pydecref(b)
     @pycheckz ccall((@pysym :PyObject_GetBuffer), Cint,
                      (PyPtr, Any, Cint), o, b, flags)
     return b

@@ -11,6 +11,13 @@ function _pycall!(ret::PyObject, o::Union{PyObject,PyPtr}, args, kwargs)
     _pycall!(ret, o, args, length(args), kw)
 end
 
+# function pysetarg!(pyargsptr, arg, i::Int)
+#     pyarg = PyObject(arg)
+#     pyincref(pyarg) # PyTuple_SetItem steals the reference
+#     @pycheckz ccall((@pysym :PyTuple_SetItem), Cint,
+#                         (PyPtr,Int,PyPtr), pyargsptr, i-1, pyarg)
+# end
+
 """
 Low-level version of `pycall!(ret, o, ...)` for when `kw` is already in python
 friendly format but you don't have the python tuple to hold the arguments
@@ -21,6 +28,7 @@ function _pycall!(ret::PyObject, o::Union{PyObject,PyPtr}, args, nargs::Int=leng
     pyargsptr = @pycheckn ccall((@pysym :PyTuple_New), PyPtr, (Int,), nargs)
     try
         for i = 1:nargs
+            # pysetarg!(pyargsptr, args[i], i)
             pyarg = PyObject(args[i])
             pyincref(pyarg) # PyTuple_SetItem steals the reference
             @pycheckz ccall((@pysym :PyTuple_SetItem), Cint,
@@ -44,7 +52,8 @@ function __pycall!(ret::PyObject, pyargsptr::PyPtr, o::Union{PyObject,PyPtr},
         retptr = @pycheckn ccall((@pysym :PyObject_Call), PyPtr, (PyPtr,PyPtr,PyPtr), o,
                         pyargsptr, kw)
         pydecref_(ret.o)
-        ret.o = pyincref_(retptr)
+        # ret.o = pyincref_(retptr)
+        ret.o = retptr
     finally
         sigatomic_end()
     end
