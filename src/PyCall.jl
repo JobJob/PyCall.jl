@@ -12,13 +12,14 @@ export pycall, pycall!, pyimport, pyimport_e, pybuiltin, PyObject, PyReverseDims
        pyraise, pytype_mapping, pygui, pygui_start, pygui_stop,
        pygui_stop_all, @pylab, set!, PyTextIO, @pysym, PyNULL, ispynull, @pydef,
        pyimport_conda, @py_str, @pywith, @pycall, pybytes, pyfunction, pyfunctionret,
-       pywrapfn, pysetarg!, pysetargs!, unsafe_gettpl!
+       unsafe_gettpl!
 
 import Base: size, ndims, similar, copy, getindex, setindex!, stride, strides,
        convert, pointer, summary, convert, show, haskey, keys, values,
        eltype, get, get!, delete!, empty!, length, isempty, start, done,
        next, filter!, hash, splice!, pop!, ==, isequal, push!,
        append!, insert!, prepend!, unsafe_convert, @propagate_inbounds
+       
 import Compat: pushfirst!, popfirst!, firstindex, lastindex
 
 # Python C API is not interrupt-safe.  In principle, we should
