@@ -25,6 +25,7 @@ friendly format but you don't have the python tuple to hold the arguments
 """
 function _pycall!(ret::PyObject, o::Union{PyObject,PyPtr}, args, nargs::Int=length(args),
                   kw::Union{Ptr{Cvoid}, PyObject}=C_NULL)
+    sigatomic_begin()
     pyargsptr = @pycheckn ccall((@pysym :PyTuple_New), PyPtr, (Int,), nargs)
     try
         for i = 1:nargs
@@ -37,6 +38,7 @@ function _pycall!(ret::PyObject, o::Union{PyObject,PyPtr}, args, nargs::Int=leng
         return __pycall!(ret, pyargsptr, o, kw) #::PyObject
     finally
         pydecref_(pyargsptr)
+        sigatomic_end()
     end
 end
 
@@ -44,18 +46,22 @@ end
 Lowest level version of  `pycall!(ret, o, ...)`, assumes `pyargsptr` and `kw`
 have all their args set to Python values, so we can just call the function `o`.
 Sets `ret.o` to the result of the call, and returns `ret::PyObject`.
+Calls to this function should be wrapped in sigatomic_begin/end() like so:
+```
+sigatomic_begin()
+try
+    __pycall(...)
+finally
+    sigatomic_end()
+end
+```
 """
 function __pycall!(ret::PyObject, pyargsptr::PyPtr, o::Union{PyObject,PyPtr},
   kw::Union{Ptr{Cvoid}, PyObject})
-    sigatomic_begin()
-    try
-        retptr = @pycheckn ccall((@pysym :PyObject_Call), PyPtr, (PyPtr,PyPtr,PyPtr), o,
-                        pyargsptr, kw)
-        pydecref_(ret.o)
-        ret.o = retptr
-    finally
-        sigatomic_end()
-    end
+    retptr = @pycheckn ccall((@pysym :PyObject_Call), PyPtr, (PyPtr,PyPtr,PyPtr), o,
+                    pyargsptr, kw)
+    pydecref_(ret.o)
+    ret.o = retptr
     return ret #::PyObject
 end
 
