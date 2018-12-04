@@ -113,7 +113,7 @@ end
 size(a::PyArray) = a.dims
 ndims(a::PyArray{T,N}) where {T,N} = N
 
-similar(a::PyArray, T, dims::Dims) = Array{T}(undef, dims)
+similar(a::PyArray, ::Type{T}, dims::Dims) where {T} = Array{T}(undef, dims)
 
 """
 N.b. As per https://docs.python.org/3/c-api/buffer.html#c.PyBuffer_Release,
