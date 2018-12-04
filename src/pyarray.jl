@@ -131,11 +131,15 @@ end
 
 function copy(a::PyArray{T,N}) where {T,N}
     if N > 1 && a.c_contig # equivalent to f_contig with reversed dims
-        B = unsafe_wrap(Array, a.data, ntuple((n -> a.dims[N - n + 1]), N))
-        return permutedims(B, (N:-1:1))
+        B = Array{T,N}(undef, a.dims)
+        for i in eachindex(B, a)
+            B[i] = a[i]
+        end
+        return B
+        # return permutedims(B, (N:-1:1))
     end
     A = Array{T}(undef, a.dims)
-    if a.f_contig
+    if a.f_contig && a.info.st == strides(A) .* sizeof(T)
         ccall(:memcpy, Cvoid, (Ptr{T}, Ptr{T}, Int), A, a, sizeof(T)*length(a))
         return A
     else
