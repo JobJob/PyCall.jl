@@ -66,10 +66,8 @@ c_contiguous(i::PyArray_Info{T,N}) where {T,N} =
 #########################################################################
 # PyArray: no-copy wrapper around NumPy ndarray
 #
-# Hopefully, in the future this can be a subclass of StridedArray (see
-# Julia issue #2345), which will allow it to be used with most Julia
-# functions, but that is not possible at the moment.  So, to use this
-# with Julia linalg functions etcetera a copy is still required.
+# Supports the AbstractArray and StridedArray interfaces, enabling use
+# with Julia LinearAlgebra functions
 
 """
     PyArray(o::PyObject)
@@ -80,7 +78,7 @@ This implements a nocopy wrapper to a NumPy array (currently of only numeric typ
 
 If you are using `pycall` and the function returns an `ndarray`, you can use `PyArray` as the return type to directly receive a `PyArray`.
 """
-mutable struct PyArray{T,N,C} <: AbstractArray{T,N}
+mutable struct PyArray{T,N,C} <: DenseArray{T,N}
     o::PyObject
     info::PyArray_Info
     dims::NTuple{N,Int}
@@ -115,8 +113,8 @@ end
 
 size(a::PyArray) = a.dims
 ndims(a::PyArray{T,N}) where {T,N} = N
-
 similar(a::PyArray, ::Type{T}, dims::Dims) where {T} = Array{T}(undef, dims)
+Base.IndexStyle(::PyArray) = IndexCartesian()
 
 """
 N.b. As per https://docs.python.org/3/c-api/buffer.html#c.PyBuffer_Release,
@@ -223,7 +221,9 @@ function setindex!(a::PyArray, v, is::Integer...)
     writeok_assign(a, v, index)
 end
 
-stride(a::PyArray, i::Integer) = a.st[i]
+# StridedArray interface
+Base.stride(a::PyArray, i::Integer) = a.st[i]
+Base.strides(a::PyArray) = a.st
 
 Base.unsafe_convert(::Type{Ptr{T}}, a::PyArray{T}) where {T} = a.data
 
