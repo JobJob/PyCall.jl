@@ -151,12 +151,12 @@ end
 # TODO: need to do bounds-checking of these indices!
 
 getindex(a::PyArray{T,0}) where {T} = unsafe_load(a.data)
-getindex(a::PyArray{T,1}, i::Integer) where {T} = unsafe_load(a.data, 1 + (i-1)*a.st[1])
+getindex(a::PyArray{T,1}, i::Int) where {T} = unsafe_load(a.data, 1 + (i-1)*a.st[1])
 
-getindex(a::PyArray{T,2}, i::Integer, j::Integer) where {T} =
+getindex(a::PyArray{T,2}, i::Int, j::Int) where {T} =
   unsafe_load(a.data, 1 + (i-1)*a.st[1] + (j-1)*a.st[2])
 
-function getindex(a::PyArray, i::Integer)
+function getindex(a::PyArray, i::Int)
     if a.f_contig
         return unsafe_load(a.data, i)
     else
@@ -169,7 +169,7 @@ function getindex(a::PyArray, i::Integer)
     end
 end
 
-@generated function getoffset(a::PyArray{T,N}, is::Tuple{Vararg{Integer, NI}}) where {T,N,NI}
+@generated function getoffset(a::PyArray{T,N}, is::Tuple{Vararg{Int, NI}}) where {T,N,NI}
     n = min(N, NI)
     idxs = ntuple(i->i, n) # helps unrolling?
     build_index_expr = quote
@@ -196,12 +196,12 @@ end
     end
 end
 
-function getindex(a::PyArray{T,N}, is::Integer...) where {T,N}
+function getindex(a::PyArray{T,N}, is::Int...) where {T,N}
     index = getoffset(a, is)
     unsafe_load(a.data, index)
 end
 
-function writeok_assign(a::PyArray, v, i::Integer)
+function writeok_assign(a::PyArray, v, i::Int)
     if a.info.readonly
         throw(ArgumentError("read-only PyArray"))
     else
@@ -211,12 +211,12 @@ function writeok_assign(a::PyArray, v, i::Integer)
 end
 
 setindex!(a::PyArray{T,0}, v) where {T} = writeok_assign(a, v, 1)
-setindex!(a::PyArray{T,1}, v, i::Integer) where {T} = writeok_assign(a, v, 1 + (i-1)*a.st[1])
+setindex!(a::PyArray{T,1}, v, i::Int) where {T} = writeok_assign(a, v, 1 + (i-1)*a.st[1])
 
-setindex!(a::PyArray{T,2}, v, i::Integer, j::Integer) where {T} =
+setindex!(a::PyArray{T,2}, v, i::Int, j::Int) where {T} =
   writeok_assign(a, v, 1 + (i-1)*a.st[1] + (j-1)*a.st[2])
 
-function setindex!(a::PyArray, v, i::Integer)
+function setindex!(a::PyArray, v, i::Int)
     if a.f_contig
         return writeok_assign(a, v, i)
     else
@@ -225,13 +225,13 @@ function setindex!(a::PyArray, v, i::Integer)
     end
 end
 
-function setindex!(a::PyArray, v, is::Integer...)
+function setindex!(a::PyArray, v, is::Int...)
     index = getoffset(a, is)
     writeok_assign(a, v, index)
 end
 
 # StridedArray interface
-Base.stride(a::PyArray, i::Integer) = a.st[i]
+Base.stride(a::PyArray, i::Int) = a.st[i]
 Base.strides(a::PyArray) = a.st
 
 Base.unsafe_convert(::Type{Ptr{T}}, a::PyArray{T}) where {T} = a.data
