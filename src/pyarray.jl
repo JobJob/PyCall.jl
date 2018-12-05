@@ -169,17 +169,35 @@ function getindex(a::PyArray, i::Integer)
     end
 end
 
-function getindex(a::PyArray, is::Integer...)
-    index = 1
-    n = min(length(is),length(a.st))
-    for i = 1:n
-        index += (is[i]-1)*a.st[i]
-    end
-    for i = n+1:length(is)
-        if is[i] != 1
-            throw(BoundsError())
+@generated function getoffset(a::PyArray{T,N}, is::Tuple{Vararg{Integer, NI}}) where {T,N,NI}
+    n = min(N, NI)
+    idxs = ntuple(i->i, n) # helps unrolling?
+    build_index_expr = quote
+        index = 1
+        for i in $idxs
+            index += (is[i]-1)*a.st[i]
         end
     end
+    bounds_check_expr = :()
+    if NI > N
+        trailing_idxs = ntuple(i->N+i, NI - N)
+        bounds_check_expr = quote
+            for i in $trailing_idxs
+                if is[i] != 1
+                    throw(BoundsError())
+                end
+            end
+        end
+    end
+    quote
+        $build_index_expr
+        $bounds_check_expr
+        return index
+    end
+end
+
+function getindex(a::PyArray{T,N}, is::Integer...) where {T,N}
+    index = getoffset(a, is)
     unsafe_load(a.data, index)
 end
 
@@ -208,16 +226,7 @@ function setindex!(a::PyArray, v, i::Integer)
 end
 
 function setindex!(a::PyArray, v, is::Integer...)
-    index = 1
-    n = min(length(is),length(a.st))
-    for i = 1:n
-        index += (is[i]-1)*a.st[i]
-    end
-    for i = n+1:length(is)
-        if is[i] != 1
-            throw(BoundsError())
-        end
-    end
+    index = getoffset(a, is)
     writeok_assign(a, v, index)
 end
 
