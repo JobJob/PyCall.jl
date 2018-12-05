@@ -80,11 +80,12 @@ This implements a nocopy wrapper to a NumPy array (currently of only numeric typ
 
 If you are using `pycall` and the function returns an `ndarray`, you can use `PyArray` as the return type to directly receive a `PyArray`.
 """
-mutable struct PyArray{T,N} <: AbstractArray{T,N}
+mutable struct PyArray{T,N,C} <: AbstractArray{T,N}
     o::PyObject
     info::PyArray_Info
     dims::NTuple{N,Int}
-    st::NTuple{N,Int}
+    st::NTuple{N,Int} # strides in number of elements
+    i2s::C
     f_contig::Bool
     c_contig::Bool
     data::Ptr{T}
@@ -99,7 +100,9 @@ mutable struct PyArray{T,N} <: AbstractArray{T,N}
         elseif length(info.sz) != N || length(info.st) != N
             throw(ArgumentError("inconsistent ndims in PyArray constructor"))
         end
-        return new{T,N}(o, info, tuple(info.sz...), div.(info.st, sizeof(T)),
+        dims = div.(info.st, sizeof(T))
+        i2s = CartesianIndices(dims)
+        return new{T,N,typeof(i2s)}(o, info, tuple(info.sz...), dims, i2s,
                         f_contiguous(info), c_contiguous(info),
                         convert(Ptr{T}, info.data))
     end
@@ -159,7 +162,12 @@ function getindex(a::PyArray, i::Integer)
     if a.f_contig
         return unsafe_load(a.data, i)
     else
-        return a[ind2sub(a.dims, i)...]
+        return a[a.i2s[i]]
+        # if VERSION >= v"0.7"
+        #     return a[a.i2s[i]]
+        # else
+        #     return a[ind2sub(a.dims, i)...]
+        # end
     end
 end
 
@@ -196,7 +204,8 @@ function setindex!(a::PyArray, v, i::Integer)
     if a.f_contig
         return writeok_assign(a, v, i)
     else
-        return setindex!(a, v, ind2sub(a.dims, i)...)
+        # return setindex!(a, v, ind2sub(a.dims, i)...)
+        return setindex!(a, v, a[a.i2s[i]])
     end
 end
 
@@ -218,7 +227,7 @@ stride(a::PyArray, i::Integer) = a.st[i]
 
 Base.unsafe_convert(::Type{Ptr{T}}, a::PyArray{T}) where {T} = a.data
 
-pointer(a::PyArray, i::Int) = pointer(a, ind2sub(a.dims, i))
+pointer(a::PyArray, i::Int) = pointer(a, a[a.i2s[i]]) # ind2sub(a.dims, i))
 
 function pointer(a::PyArray{T}, is::Tuple{Vararg{Int}}) where T
     offset = 0
