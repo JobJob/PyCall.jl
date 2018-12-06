@@ -40,12 +40,12 @@ end
 
 # whether a contiguous array in column-major (Fortran, Julia) order
 function f_contiguous(T::Type, sz::NTuple{N,Int}, st::NTuple{N,Int}) where N
+    if st[1] != sizeof(T)
+        return false
+    end
     if prod(sz) == 1 || length(sz) == 1
         # 0 or 1-dim arrays should default to f-contiguous in julia
         return true
-    end
-    if st[1] != sizeof(T)
-        return false
     end
     for j = 2:N
         if st[j] != st[j-1] * sz[j-1]
@@ -131,21 +131,13 @@ function setdata!(a::PyArray{T,N}, o::PyObject) where {T,N}
 end
 
 function copy(a::PyArray{T,N}) where {T,N}
-    if N > 1 && a.c_contig # equivalent to f_contig with reversed dims
-        B = Array{T,N}(undef, a.dims)
-        for i in eachindex(B, a)
-            B[i] = a[i]
-        end
-        return B
-        # return permutedims(B, (N:-1:1))
-    end
     A = Array{T}(undef, a.dims)
-    if a.f_contig && a.info.st == strides(A) .* sizeof(T)
+    if a.f_contig
         ccall(:memcpy, Cvoid, (Ptr{T}, Ptr{T}, Int), A, a, sizeof(T)*length(a))
-        return A
     else
-        return copyto!(A, a)
+        copyto!(A, a)
     end
+    return A
 end
 
 # TODO: need to do bounds-checking of these indices!
