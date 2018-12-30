@@ -13,7 +13,7 @@ end
 
 function PyArray_Info(o::PyObject)
     # n.b. the pydecref(::PyBuffer) finalizer handles releasing the PyBuffer
-    pybuf = PyBuffer(o, PyBUF_ND_CONTIGUOUS)
+    pybuf = PyBuffer(o, PyBUF_ND_STRIDED)
     T, native_byteorder = array_format(pybuf)
     sz = size(pybuf)
     strd = strides(pybuf)
@@ -38,16 +38,30 @@ function default_stride(sz::NTuple{N, Int}, ::Type{T}) where {T,N}
     ntuple(i->stv[i], N)
 end
 
-# whether a contiguous array in column-major (Fortran, Julia) order
-function f_contiguous(T::Type, sz::NTuple{N,Int}, st::NTuple{N,Int}) where N
+"""
+`f_contiguous(T::Type, sz::NTuple{N,Int}, st::NTuple{N,Int})::Bool`
+
+Whether an array is in column-major (Fortran, Julia) order, and
+has elements stored contiguously. Any array that is f_contiguous will have
+identical memory layout to a Julia `Array` of the same size.
+
+`sz` should be the dimensions of the array in number of elements (i.e. what
+     `size(a)` would return)
+`st` should be the stride(s) *in bytes* between elements in each dimension
+"""
+function f_contiguous(::Type{T}, sz::NTuple{N,Int}, st::NTuple{N,Int}) where {T,N}
     if st[1] != sizeof(T)
+        # not contiguous
         return false
     end
     if prod(sz) == 1 || length(sz) == 1
-        # 0 or 1-dim arrays should default to f-contiguous in julia
+        # 0 or 1-dim arrays (with correct stride) should default to f-contiguous
+        # in julia
         return true
     end
     for j = 2:N
+        # check stride[cur_dim] == stride[prev_dim]*sz[prev_dim] for all dims>1,
+        # implying contiguous column-major storage (n.b. st[1] == sizeof(T) here)
         if st[j] != st[j-1] * sz[j-1]
             return false
         end
@@ -124,13 +138,15 @@ PyObject_GetBuffer()
 """
 function setdata!(a::PyArray{T,N}, o::PyObject) where {T,N}
     pybufinfo = a.info.pybuf
-    PyBuffer!(pybufinfo, o, PyBUF_ND_CONTIGUOUS)
+    PyBuffer!(pybufinfo, o, PyBUF_ND_STRIDED)
     dataptr = pybufinfo.buf.buf
     a.data = reinterpret(Ptr{T}, dataptr)
     a
 end
 
 function copy(a::PyArray{T,N}) where {T,N}
+    # memcpy is ok iff `a` is f_contig (implies same memory layout as the equiv
+    # `Array`) otherwise we do a regular `copyto!`, such that A[I...] == a[I...]
     A = Array{T}(undef, a.dims)
     if a.f_contig
         ccall(:memcpy, Cvoid, (Ptr{T}, Ptr{T}, Int), A, a, sizeof(T)*length(a))
@@ -306,7 +322,7 @@ function convert(::Type{Array{PyObject,N}}, o::PyObject) where N
     map(pyincref, convert(Array{PyPtr, N}, o))
 end
 
-array_format(o::PyObject) = array_format(PyBuffer(o, PyBUF_ND_CONTIGUOUS))
+array_format(o::PyObject) = array_format(PyBuffer(o, PyBUF_ND_STRIDED))
 
 """
 ```
@@ -326,7 +342,7 @@ correctly.
 """
 function NoCopyArray(o::PyObject)
     # n.b. the pydecref(::PyBuffer) finalizer handles releasing the PyBuffer
-    pybuf = PyBuffer(o, PyBUF_ND_CONTIGUOUS)
+    pybuf = PyBuffer(o, PyBUF_ND_STRIDED)
     T, native_byteorder = array_format(pybuf)
     !native_byteorder && throw(ArgumentError(
       "Only native endian format supported, format string: '$(get_format_str(pybuf))'"))
